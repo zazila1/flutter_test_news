@@ -1,111 +1,147 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth_ui/firebase_auth_ui.dart';
+import 'package:firebase_auth_ui/providers.dart';
+import 'package:flutter/services.dart';
 
-void main() => runApp(MyApp());
+void main()
+{
+  runApp(MaterialApp(
+      initialRoute: '/',
+      routes:{
+        '/': (BuildContext context) => EntryPoint(),
+        '/news': (BuildContext context) => EntryPoint(),
+      }
+  ));
+}
 
-class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
+
+
+
+class EntryPoint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Flutter News Test',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: new MyApp(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
+class MyApp extends StatefulWidget {
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  _MyAppState createState() => _MyAppState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _MyAppState extends State<MyApp> {
+  FirebaseUser _user;
+  String _error = '';
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  @override
+  void initState() {
+    super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.display1,
-            ),
-          ],
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(
+          title: const Text('Firebase Auth UI Demo'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              _getMessage(),
+              Container(
+                margin: EdgeInsets.only(top: 10, bottom: 10),
+                child: RaisedButton(
+                  child: Text(_user != null ? 'Logout' : 'Login'),
+                  onPressed: _onActionTapped,
+                ),
+              ),
+              _getErrorText(),
+            ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
+  }
+
+  Widget _getMessage() {
+    if (_user != null) {
+      return Text(
+        'Logged in user is: ${_user.displayName ?? ''}',
+        style: TextStyle(
+          fontSize: 16,
+        ),
+      );
+    } else {
+      return Text(
+        'Tap the below button to Login',
+        style: TextStyle(
+          fontSize: 16,
+        ),
+      );
+    }
+  }
+
+  Widget _getErrorText() {
+    if (_error?.isNotEmpty == true) {
+      return Text(
+        _error,
+        style: TextStyle(
+          color: Colors.redAccent,
+          fontSize: 16,
+        ),
+      );
+    } else {
+      return Container();
+    }
+  }
+
+  void _onActionTapped() {
+    if (_user == null) {
+      // User is null, initiate auth
+      FirebaseAuthUi.instance().launchAuth([
+        AuthProvider.email(),
+        // Google ,facebook, twitter and phone auth providers are commented because this example
+        // isn't configured to enable them. Please follow the README and uncomment
+        // them if you want to integrate them in your project.
+
+        // AuthProvider.google(),
+         AuthProvider.facebook(),
+        // AuthProvider.twitter(),
+        // AuthProvider.phone(),
+      ]).then((firebaseUser) {
+        setState(() {
+          _error = "";
+          _user = firebaseUser;
+        });
+      }).catchError((error) {
+        if (error is PlatformException) {
+          setState(() {
+            if (error.code == FirebaseAuthUi.kUserCancelledError) {
+              _error = "User cancelled login";
+            } else {
+              _error = error.message ?? "Unknown error!";
+            }
+          });
+        }
+      });
+    } else {
+      // User is already logged in, logout!
+      _logout();
+    }
+  }
+
+  void _logout() async {
+    await FirebaseAuthUi.instance().logout();
+    setState(() {
+      _user = null;
+    });
   }
 }
